@@ -37,6 +37,20 @@ jobs:
           sed -i "s|url \".*\"|url \"${{ steps.npm.outputs.url }}\"|" Formula/paubox-cli.rb
           sed -i "s|sha256 \".*\"|sha256 \"${{ steps.npm.outputs.sha256 }}\"|" Formula/paubox-cli.rb
 
+      - name: Set up Homebrew
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Audit formula
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: brew audit --strict --online Formula/paubox-cli.rb
+
+      - name: Install & test formula
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: |
+          brew install --build-from-source Formula/paubox-cli.rb
+          brew test Formula/paubox-cli.rb
+
       - name: Commit and push
         if: steps.npm.outputs.version != steps.current.outputs.version
         run: |
