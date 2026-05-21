@@ -8,12 +8,16 @@ class PauboxCli < Formula
   depends_on "node"
 
   def install
-    system "npm", "install", "--prefix", libexec, "--global",
-                             "--production", "--cache", buildpath/".npm-cache"
+    # std_npm_args strips prepack/prepare/postpack from package.json and
+    # installs from a tarball (not the source directory), which avoids
+    # npm 5.0+ creating symlinks back to the Homebrew build tempdir.
+    # ignore_scripts: false lets keytar's postinstall fetch its native binary.
+    system "npm", "install", *std_npm_args(ignore_scripts: false)
     bin.install_symlink Dir["#{libexec}/bin/*"]
   end
 
   test do
     assert_match version.to_s, shell_output("#{bin}/paubox --version")
+    assert_match "Usage:", shell_output("#{bin}/paubox --help")
   end
 end
