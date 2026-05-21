@@ -1,0 +1,61 @@
+name: Update Formula
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest npm version & sha256
+        id: npm
+        run: |
+          LATEST=$(curl -s https://registry.npmjs.org/paubox-cli/latest \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+          URL="https://registry.npmjs.org/paubox-cli/-/paubox-cli-${LATEST}.tgz"
+          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+          echo "version=$LATEST"  >> "$GITHUB_OUTPUT"
+          echo "url=$URL"         >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256"   >> "$GITHUB_OUTPUT"
+
+      - name: Get current formula version
+        id: current
+        run: |
+          VER=$(grep -oP '(?<=paubox-cli-)\d+\.\d+\.\d+(?=\.tgz)' Formula/paubox-cli.rb | head -1)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: |
+          sed -i "s|url \".*\"|url \"${{ steps.npm.outputs.url }}\"|" Formula/paubox-cli.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.npm.outputs.sha256 }}\"|" Formula/paubox-cli.rb
+
+      - name: Set up Homebrew
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Audit formula
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: brew audit --strict --online Formula/paubox-cli.rb
+
+      - name: Install & test formula
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: |
+          brew install --build-from-source Formula/paubox-cli.rb
+          brew test Formula/paubox-cli.rb
+
+      - name: Commit and push
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/paubox-cli.rb
+          git commit -m "chore: update paubox-cli to v${{ steps.npm.outputs.version }}"
+          git push
