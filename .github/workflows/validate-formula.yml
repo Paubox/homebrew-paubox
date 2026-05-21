@@ -1,0 +1,59 @@
+name: Validate Formula
+
+# Runs `brew audit`, `brew install --build-from-source`, and `brew test`
+# on every PR and every push to master that touches a formula or this
+# workflow file.
+#
+# Why this exists: update-formula.yml only runs these checks when the
+# auto-bumper is pushing a version change. Formula-only edits (refactors,
+# install-block changes, test-block changes) currently ship to master
+# un-validated -- which is how a broken install reached production. This
+# workflow closes that gap.
+#
+# Why macOS runners: the install bug we hit (npm 5.0+ symlinks the source
+# directory under `npm install --global`) reproduces on macOS Homebrew,
+# and keytar's native binary postinstall is platform-specific. Linuxbrew
+# would miss both signals.
+
+on:
+  pull_request:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/validate-formula.yml"
+  push:
+    branches: [master]
+    paths:
+      - "Formula/**"
+      - ".github/workflows/validate-formula.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Audit, install, and test every formula
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for f in Formula/*.rb; do
+            name="$(basename "$f" .rb)"
+
+            echo "::group::brew audit --strict --online $f"
+            brew audit --strict --online "$f"
+            echo "::endgroup::"
+
+            echo "::group::brew install --build-from-source $f"
+            brew install --build-from-source "$f"
+            echo "::endgroup::"
+
+            echo "::group::brew test $name"
+            brew test "$name"
+            echo "::endgroup::"
+          done
