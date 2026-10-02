@@ -25,7 +25,7 @@ brew update && brew upgrade paubox-cli
 
 | Formula | Version | Description |
 |---------|---------|-------------|
-| `paubox-cli` | 0.1.3 | Official CLI for the Paubox HIPAA-compliant email API |
+| `paubox-cli` | 1.4.0 | Official CLI for the Paubox HIPAA-compliant email API |
 
 ## Source
 

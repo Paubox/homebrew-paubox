@@ -36,21 +36,26 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        # @main, not @master: Homebrew/actions renamed its default branch, and
+        # the old ref stopped resolving at all.
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: Audit, install, and test every formula
         run: |
           set -euo pipefail
           shopt -s nullglob
           for f in Formula/*.rb; do
-            name="$(basename "$f" .rb)"
+            # Tap-qualified name, not path: `brew audit [path ...]` is disabled
+            # upstream. setup-homebrew symlinks this checkout in as the tap, so
+            # the name resolves to the formula in this PR, not the published one.
+            name="paubox/paubox/$(basename "$f" .rb)"
 
-            echo "::group::brew audit --strict --online $f"
-            brew audit --strict --online "$f"
+            echo "::group::brew audit --strict --online $name"
+            brew audit --strict --online "$name"
             echo "::endgroup::"
 
-            echo "::group::brew install --build-from-source $f"
-            brew install --build-from-source "$f"
+            echo "::group::brew install --build-from-source $name"
+            brew install --build-from-source "$name"
             echo "::endgroup::"
 
             echo "::group::brew test $name"
