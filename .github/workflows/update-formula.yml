@@ -41,15 +41,20 @@ jobs:
         if: steps.npm.outputs.version != steps.current.outputs.version
         uses: Homebrew/actions/setup-homebrew@master
 
+      # Addressed by tap-qualified name, not path: `brew audit [path ...]` is
+      # disabled upstream, which failed every run of this workflow from the
+      # day Homebrew shipped that change. setup-homebrew symlinks this
+      # checkout in as the tap, so the name resolves to the formula edited
+      # above rather than to whatever is published.
       - name: Audit formula
         if: steps.npm.outputs.version != steps.current.outputs.version
-        run: brew audit --strict --online Formula/paubox-cli.rb
+        run: brew audit --strict --online paubox/paubox/paubox-cli
 
       - name: Install & test formula
         if: steps.npm.outputs.version != steps.current.outputs.version
         run: |
-          brew install --build-from-source Formula/paubox-cli.rb
-          brew test Formula/paubox-cli.rb
+          brew install --build-from-source paubox/paubox/paubox-cli
+          brew test paubox/paubox/paubox-cli
 
       - name: Commit and push
         if: steps.npm.outputs.version != steps.current.outputs.version

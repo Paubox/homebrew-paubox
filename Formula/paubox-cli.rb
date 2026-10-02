@@ -1,8 +1,8 @@
 class PauboxCli < Formula
   desc "Official CLI for the Paubox HIPAA-compliant email API"
   homepage "https://github.com/Paubox/paubox-cli"
-  url "https://registry.npmjs.org/paubox-cli/-/paubox-cli-0.1.3.tgz"
-  sha256 "388f3b0f8fb863f1a8e01200b253b700419fbcfb0e209f338bff8d62fb9eeb86"
+  url "https://registry.npmjs.org/paubox-cli/-/paubox-cli-1.4.0.tgz"
+  sha256 "79c6370d94bf362566d043211c0269fde61ebd09cae19be580e2c2cc2c00b6b0"
   license "Apache-2.0"
 
   depends_on "node"
