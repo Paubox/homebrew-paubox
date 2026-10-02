@@ -36,7 +36,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        # @main, not @master: Homebrew/actions renamed its default branch, and
+        # the old ref stopped resolving at all.
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: Audit, install, and test every formula
         run: |

@@ -39,7 +39,9 @@ jobs:
 
       - name: Set up Homebrew
         if: steps.npm.outputs.version != steps.current.outputs.version
-        uses: Homebrew/actions/setup-homebrew@master
+        # @main, not @master: Homebrew/actions renamed its default branch, and
+        # the old ref stopped resolving at all.
+        uses: Homebrew/actions/setup-homebrew@main
 
       # Addressed by tap-qualified name, not path: `brew audit [path ...]` is
       # disabled upstream, which failed every run of this workflow from the
