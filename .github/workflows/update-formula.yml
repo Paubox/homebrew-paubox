@@ -5,6 +5,12 @@ on:
     - cron: "0 */6 * * *"
   workflow_dispatch:
 
+# Homebrew's tooling re-resolves the tap on its own and will reset this
+# checkout given the chance. Keeping auto-update off for the whole job means
+# no `brew` invocation re-fetches the tap after the formula has been edited.
+env:
+  HOMEBREW_NO_AUTO_UPDATE: 1
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -31,17 +37,40 @@ jobs:
           VER=$(grep -oP '(?<=paubox-cli-)\d+\.\d+\.\d+(?=\.tgz)' Formula/paubox-cli.rb | head -1)
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
+      # Before the formula is edited, not after. setup-homebrew symlinks this
+      # checkout in as the tap and then fetches and resets it:
+      #
+      #   'origin/HEAD' is now created and points to 'master'
+      #   Reset branch 'master'
+      #
+      # Run after the edit, that reset silently discards it. The audit and test
+      # steps below then validated the *published* formula while reporting
+      # success, and the commit step failed with "nothing to commit". That is
+      # how every run from the 2.0.0 release onwards failed.
+      - name: Set up Homebrew
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        # @main, not @master: Homebrew/actions renamed its default branch, and
+        # the old ref stopped resolving at all.
+        uses: Homebrew/actions/setup-homebrew@main
+
       - name: Update formula
         if: steps.npm.outputs.version != steps.current.outputs.version
         run: |
           sed -i "s|url \".*\"|url \"${{ steps.npm.outputs.url }}\"|" Formula/paubox-cli.rb
           sed -i "s|sha256 \".*\"|sha256 \"${{ steps.npm.outputs.sha256 }}\"|" Formula/paubox-cli.rb
 
-      - name: Set up Homebrew
+      # The edit is the whole point of the job, so prove it survived rather
+      # than discovering it did not at `git commit` time. A no-op run and a
+      # working run were previously indistinguishable.
+      - name: Assert the formula actually changed
         if: steps.npm.outputs.version != steps.current.outputs.version
-        # @main, not @master: Homebrew/actions renamed its default branch, and
-        # the old ref stopped resolving at all.
-        uses: Homebrew/actions/setup-homebrew@main
+        run: |
+          if git diff --quiet -- Formula/paubox-cli.rb; then
+            echo "::error::Formula/paubox-cli.rb is unchanged after the update step."
+            echo "Something reset the checkout — check whether a brew command re-fetched the tap."
+            exit 1
+          fi
+          git --no-pager diff -- Formula/paubox-cli.rb
 
       # Addressed by tap-qualified name, not path: `brew audit [path ...]` is
       # disabled upstream, which failed every run of this workflow from the
@@ -57,6 +86,21 @@ jobs:
         run: |
           brew install --build-from-source paubox/paubox/paubox-cli
           brew test paubox/paubox/paubox-cli
+
+      # Guards against the inverse of the problem above: brew resolving the
+      # published formula instead of the edited one, so the job installs and
+      # tests the version it is supposed to be replacing.
+      - name: Assert the installed version is the new one
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        env:
+          WANT: ${{ steps.npm.outputs.version }}
+        run: |
+          GOT=$(brew list --versions paubox-cli | awk '{print $2}')
+          echo "installed=$GOT want=$WANT"
+          if [ "$GOT" != "$WANT" ]; then
+            echo "::error::brew installed $GOT but the formula was updated to $WANT."
+            exit 1
+          fi
 
       - name: Commit and push
         if: steps.npm.outputs.version != steps.current.outputs.version
