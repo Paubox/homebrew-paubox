@@ -109,4 +109,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/paubox-cli.rb
           git commit -m "chore: update paubox-cli to v${{ steps.npm.outputs.version }}"
-          git push
+          # Explicit refspec, because actions/checkout creates the branch with
+          # `-B master refs/remotes/origin/master` and never sets an upstream,
+          # so a bare `git push` fails with "has no upstream branch". The job
+          # used to die at `git commit` and never reach this line, which is why
+          # it only surfaced once the commit started succeeding.
+          git push origin HEAD:"${GITHUB_REF_NAME}"
